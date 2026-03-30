@@ -44,19 +44,37 @@ def run_counterfactual(
             description="No data for counterfactual comparison",
         )
 
+    import math
+
     n = min(len(baseline_sharpe_by_window), len(adjusted_sharpe_by_window))
     avg_baseline = sum(baseline_sharpe_by_window[:n]) / n
     avg_adjusted = sum(adjusted_sharpe_by_window[:n]) / n
     improvement = avg_adjusted - avg_baseline
 
+    # Per-window win count (contract section 1: majority of windows must improve)
+    wins = sum(
+        1
+        for b, a in zip(
+            baseline_sharpe_by_window[:n],
+            adjusted_sharpe_by_window[:n],
+            strict=True,
+        )
+        if a > b
+    )
+    majority_wins = wins >= math.ceil(n / 2)
+
+    passes = improvement >= min_improvement and majority_wins
+    win_desc = f"{wins}/{n} windows improved"
+
     return CounterfactualResult(
         baseline_sharpe=round(avg_baseline, 4),
         adjusted_sharpe=round(avg_adjusted, 4),
         improvement=round(improvement, 4),
-        passes_simplicity_tax=improvement >= min_improvement,
+        passes_simplicity_tax=passes,
         evaluation_windows=n,
         description=(
             f"Avg Sharpe: {avg_baseline:.3f} → {avg_adjusted:.3f} "
-            f"(Δ{improvement:+.3f}, {'PASS' if improvement >= min_improvement else 'FAIL'})"
+            f"(Δ{improvement:+.3f}, {win_desc}, "
+            f"{'PASS' if passes else 'FAIL'})"
         ),
     )

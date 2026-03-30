@@ -66,6 +66,22 @@ class Incubator:
     def population_size(self) -> int:
         return len(self._population)
 
+    def _adjusted_graduation_threshold(self) -> float:
+        """Graduation Sharpe increases with experiment count.
+
+        Per profitability contract section 5: more experiments = higher bar.
+        """
+        n = self._ledger.total_experiments
+        if n <= 10:
+            penalty = 0.0
+        elif n <= 50:
+            penalty = 0.1
+        elif n <= 200:
+            penalty = 0.2
+        else:
+            penalty = 0.3
+        return self._graduation_sharpe + penalty
+
     def generate_candidates(self, n: int = 5) -> list[IncubatorCandidate]:
         """Generate new candidates via mutation of seed strategies.
 
@@ -105,10 +121,13 @@ class Incubator:
         """
         candidate.fitness = fitness
 
+        # Post-selection penalty: more experiments = higher bar
+        adjusted_threshold = self._adjusted_graduation_threshold()
+
         # Find the ledger record
         records = [r for r in self._ledger.get_all() if r.candidate_id == candidate.skill.name]
         if records:
-            graduated = fitness.sharpe >= self._graduation_sharpe
+            graduated = fitness.sharpe >= adjusted_threshold
             self._ledger.record_result(
                 records[-1],
                 sharpe=fitness.sharpe,
@@ -159,21 +178,76 @@ class Incubator:
         )
 
 
+_ENTRY_MUTATIONS = [
+    "Require volume above 20-day average",
+    "Add RSI confirmation (RSI > 50)",
+    "Wait for 2-day close above entry level",
+    "Require MACD histogram positive",
+    "Add Bollinger Band breakout confirmation",
+]
+
+_EXIT_MUTATIONS = [
+    "Tighten trailing stop to 3%",
+    "Add time-based exit after 10 days",
+    "Exit on RSI divergence",
+    "Add 5% profit target",
+    "Widen stop to 8% for lower frequency",
+]
+
+_REGIME_OPTIONS = [
+    "risk-on",
+    "risk-off",
+    "transitional",
+    "risk-on, trending",
+    "risk-off, defensive",
+]
+
+
 def _mutate_strategy(parent: StrategySkill, generation: int, index: int) -> StrategySkill:
-    """Create a mutated variant of a strategy."""
+    """Create a meaningfully mutated variant of a strategy.
+
+    Perturbs numeric parameters, varies entry/exit logic, and
+    randomizes regime targeting.
+    """
+    rng = random.Random(hash(f"{parent.name}-{generation}-{index}"))
+
+    # Perturb numeric parameters
+    sharpe = _perturb(rng, parent.expected_sharpe or 0.8, 0.2, 0.1, 2.0)
+    drawdown = _perturb(rng, parent.expected_max_drawdown or 0.10, 0.03, 0.03, 0.25)
+    win_rate = _perturb(rng, parent.expected_win_rate or 0.50, 0.05, 0.30, 0.75)
+
+    # Vary risk parameters
+    base_pct = parent.risk_parameters.get("max_position_pct", 0.05)
+    new_pct = _perturb(rng, base_pct, 0.01, 0.01, 0.05)
+
+    # Mutate entry/exit logic
+    entry_mutation = rng.choice(_ENTRY_MUTATIONS)
+    exit_mutation = rng.choice(_EXIT_MUTATIONS)
+
+    # Vary regime target
+    regime = rng.choice(_REGIME_OPTIONS)
+
     return StrategySkill(
         name=f"{parent.name}-gen{generation}-{index}",
         description=f"Mutation of {parent.name} (gen {generation})",
-        entry_logic=f"{parent.entry_logic} with tighter confirmation",
-        exit_logic=f"{parent.exit_logic} with adjusted stops",
+        entry_logic=f"{parent.entry_logic}. {entry_mutation}.",
+        exit_logic=f"{parent.exit_logic}. {exit_mutation}.",
         position_sizing_default=parent.position_sizing_default,
-        target_regime=parent.target_regime,
-        expected_sharpe=parent.expected_sharpe,
-        expected_max_drawdown=parent.expected_max_drawdown,
-        expected_win_rate=parent.expected_win_rate,
-        risk_parameters=parent.risk_parameters,
-        body=f"{parent.body}\n\n## Generation {generation}\nMutated variant.",
+        target_regime=regime,
+        expected_sharpe=round(sharpe, 2),
+        expected_max_drawdown=round(drawdown, 3),
+        expected_win_rate=round(win_rate, 2),
+        risk_parameters={"max_position_pct": round(new_pct, 3)},
+        body=(
+            f"{parent.body}\n\n## Generation {generation}\n"
+            f"Mutated: {entry_mutation}, {exit_mutation}."
+        ),
     )
+
+
+def _perturb(rng: random.Random, value: float, scale: float, lo: float, hi: float) -> float:
+    """Perturb a value with bounded Gaussian noise."""
+    return max(lo, min(hi, value + rng.gauss(0, scale)))
 
 
 def _synthetic_fitness(skill: StrategySkill) -> FitnessResult:
