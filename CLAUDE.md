@@ -4,13 +4,18 @@
 
 Before writing any code, implementing any feature, or making any architectural decision, read and comply with `docs/implementation/profitability-contract.md`. It overrides all phase specs.
 
-Key constraints:
-- **Every strategy/signal/layer must beat buy-and-hold SPY after costs** (spread, slippage, delay)
-- **Narrow scope until first profitable quarter:** US large-cap only, days-to-weeks horizon, max 3 strategies + capital preservation, max 3 signal sources
-- **Simplicity tax:** each new layer must prove incremental value over the simpler stack
-- **LLMs generate structured hypotheses, NOT trade decisions.** Decision path is symbolic and testable.
-- **Champion/challenger:** changes compete against current best across 3+ OOS windows
-- **Paper/live deviation is the primary health metric** — auto-demotion if correlation < 0.8
+Key constraints (11 sections — read the full doc):
+1. **Baseline-beating:** strategy-class-matched benchmarks (SPY, sector ETF, beta-matched, low-net). Signal sources evaluated on marginal lift, not standalone returns.
+2. **Executable alpha only:** after spread, slippage, delay, commissions. Reject if edge < 2x round-trip cost.
+3. **Minimum statistical bar:** 30+ trades/window, 3+ windows, 2+ regime labels, deflated Sharpe, bootstrap CIs. No promotion if CIs overlap zero.
+4. **Capacity and liquidity:** ADV participation cap (1% default), exit-capacity check, capacity-adjusted alpha must stay positive.
+5. **Multiple-testing discipline:** experiment registry, search-breadth penalty, lower-confidence-bound Sharpe for promotion. More tests = higher bar.
+6. **Narrow scope until first profitable quarter:** US large-cap, days-to-weeks, max 3 strategies, max 3 signal sources.
+7. **Simplicity tax:** each layer must prove incremental Sharpe improvement >= 0.1 over the system without it.
+8. **Champion/challenger:** one challenger at a time, must beat champion across 3+ OOS windows.
+9. **LLM role boundaries:** structured hypotheses only, no trade decisions, benchmark against non-LLM baseline.
+10. **Paper/live deviation:** primary health metric, auto-demotion if 30-day correlation < 0.8.
+11. **Practical path:** find one edge, prove it survives costs, automate around it.
 
 If a proposed feature or change does not satisfy the profitability contract, do not implement it. Flag the conflict instead.
 
@@ -41,3 +46,6 @@ If a proposed feature or change does not satisfy the profitability contract, do 
 - Do not expand scope beyond S&P 500 large-cap until first profitable quarter
 - Do not evolve multiple components simultaneously in live mode
 - Do not ship strategies whose expected edge is less than 2x estimated round-trip cost
+- Do not promote strategies without minimum 30 trades/window and deflated Sharpe
+- Do not ignore capacity constraints — no live trading if ADV participation > 1%
+- Do not cherry-pick from incubator/evolution without logging in experiment registry
