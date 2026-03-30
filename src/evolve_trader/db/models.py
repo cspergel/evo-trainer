@@ -17,7 +17,7 @@ from sqlalchemy.types import JSON
 class Base(DeclarativeBase):
     """Base class for all ORM models."""
 
-    type_annotation_map = {dict[str, Any]: JSON}
+    type_annotation_map = {dict[str, Any]: JSON, list[str]: JSON}
 
 
 class TradeLog(Base):
@@ -37,7 +37,7 @@ class TradeLog(Base):
     pnl: Mapped[float | None] = mapped_column(Float, nullable=True)
     return_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
     regime_label: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    signal_sources: Mapped[dict[str, Any]] = mapped_column(JSON, default=list)
+    signal_sources: Mapped[list[str]] = mapped_column(JSON, default=list)
     rationale_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)

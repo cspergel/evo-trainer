@@ -64,9 +64,9 @@ class SignalEventRepository:
         return list(self._session.scalars(stmt).all())
 
     def get_recent(self, hours: int = 24) -> list[SignalEventRecord]:
-        cutoff = datetime.now(UTC).replace(
-            hour=datetime.now(UTC).hour - min(hours, datetime.now(UTC).hour)
-        )
+        from datetime import timedelta
+
+        cutoff = datetime.now(UTC) - timedelta(hours=hours)
         stmt = (
             select(SignalEventRecord)
             .where(SignalEventRecord.timestamp >= cutoff)
