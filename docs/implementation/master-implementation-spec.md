@@ -4,6 +4,8 @@
 
 This document defines the build contracts for Evolve-Trader. It is the canonical implementation reference above the phase specs in this directory.
 
+**IMPORTANT:** All implementation must also satisfy the [Profitability Contract](profitability-contract.md). That document defines the constraints that determine whether any feature ships to live: baseline-beating after costs, narrow initial scope, simplicity tax, champion/challenger, LLM role boundaries, and paper/live deviation tracking. The profitability contract overrides any phase spec that conflicts with it.
+
 ## System Model
 
 The system has four trading layers plus one supervisory layer:
