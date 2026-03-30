@@ -424,58 +424,55 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY pyproject.toml .
+COPY src/ src/
+
 RUN pip install --no-cache-dir -e ".[dev]"
 
-COPY . .
+COPY tests/ tests/
 
-CMD ["uvicorn", "evolve_trader.dashboard.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["pytest", "-v"]
 ```
 
 **Step 2: Create docker-compose.yml**
 
 ```yaml
-version: "3.9"
+name: evolve-trader
 
 services:
   db:
     image: postgres:16-alpine
+    container_name: evolve-trader-db
     environment:
       POSTGRES_DB: evolve_trader
       POSTGRES_USER: evolve_trader
       POSTGRES_PASSWORD: dev_password
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - evolve_trader_pgdata:/var/lib/postgresql/data
 
-  app:
+  # Test runner — Phase 5+ will add an app service when the dashboard exists.
+  test:
     build: .
-    ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://evolve_trader:dev_password@db:5432/evolve_trader
-      LITELLM_API_KEY: ${LITELLM_API_KEY:-}
-      ALPACA_API_KEY: ${ALPACA_API_KEY:-}
-      ALPACA_SECRET_KEY: ${ALPACA_SECRET_KEY:-}
-      ALPACA_BASE_URL: ${ALPACA_BASE_URL:-https://paper-api.alpaca.markets}
+    container_name: evolve-trader-test
     volumes:
       - ./src:/app/src
       - ./tests:/app/tests
     depends_on:
       - db
+    environment:
+      DATABASE_URL: postgresql://evolve_trader:dev_password@db:5432/evolve_trader
 
 volumes:
-  pgdata:
+  evolve_trader_pgdata:
 ```
 
-**Step 3: Create docker-compose.override.yml for dev hot-reload**
+**Step 3: Create docker-compose.override.yml**
 
 ```yaml
-version: "3.9"
-
 services:
-  app:
-    command: uvicorn evolve_trader.dashboard.app:app --host 0.0.0.0 --port 8000 --reload
+  test:
+    command: pytest -v
     volumes:
       - ./src:/app/src
       - ./tests:/app/tests
