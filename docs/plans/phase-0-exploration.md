@@ -419,7 +419,7 @@ git commit -m "feat: initialize Evolve-Trader project skeleton with CI"
 **Step 1: Create Dockerfile**
 
 ```dockerfile
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -485,7 +485,7 @@ services:
 
 ```bash
 docker compose up -d db
-docker compose run --rm app pytest --cov=src/evolve_trader -v
+docker compose run --rm test pytest --cov=src/evolve_trader -v
 docker compose down
 ```
 
@@ -649,7 +649,7 @@ ruff check src/ tests/
 black --check src/ tests/
 mypy src/
 pytest --cov=src/evolve_trader -v
-docker compose run --rm app pytest -v
+docker compose run --rm test pytest -v
 ```
 
 Expected: Everything passes both locally and in Docker.
