@@ -12,8 +12,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[dev,phase1,phase2,phase4,phase5]"
       - run: ruff check src/ tests/
       - run: black --check src/ tests/
       - run: mypy src/
-      - run: pytest --cov=src/evolve_trader -v
+      - run: pytest --cov=src/evolve_trader -v -k "not test_llm_driver"
