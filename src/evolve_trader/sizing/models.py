@@ -89,19 +89,16 @@ def compute_kelly_size(
 def compute_volatility_target_size(
     target_volatility: float,
     asset_volatility: float,
-    portfolio_value: float,
-    current_price: float,
 ) -> float:
     """Compute position size to achieve a target volatility contribution.
 
     Scales position inversely to asset volatility.
 
-    Returns position size as fraction of portfolio.
+    Returns position size as fraction of portfolio (0.0 to 1.0).
     """
-    if asset_volatility <= 0 or current_price <= 0:
+    if asset_volatility <= 0:
         return 0.0
 
-    # Position size = target_vol / asset_vol
     size_pct = target_volatility / asset_volatility
     return min(size_pct, 1.0)
 
@@ -149,8 +146,6 @@ def compute_sizing(
         size_pct = compute_volatility_target_size(
             target_vol,
             context.recent_volatility,
-            context.portfolio_value,
-            context.current_price,
         )
         rationale = (
             f"Volatility targeting {target_vol:.0%} vs "
@@ -166,6 +161,10 @@ def compute_sizing(
         # Fixed fractional fallback
         size_pct = skill.params.get("fixed_fraction", 0.02)
         rationale = f"Fixed fractional: {size_pct:.1%} of portfolio"
+
+    # Cap by remaining portfolio capacity
+    remaining = max(0.0, 1.0 - context.existing_exposure)
+    size_pct = min(size_pct, remaining)
 
     # Convert to dollar value and shares
     position_value = context.portfolio_value * size_pct

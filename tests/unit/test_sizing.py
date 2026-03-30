@@ -51,17 +51,17 @@ class TestKelly:
 class TestVolatilityTargeting:
     def test_high_vol_asset_gets_smaller_position(self) -> None:
         """High-volatility asset → smaller position."""
-        high_vol = compute_volatility_target_size(0.15, 0.40, 100000, 100)
-        low_vol = compute_volatility_target_size(0.15, 0.10, 100000, 100)
+        high_vol = compute_volatility_target_size(0.15, 0.40)
+        low_vol = compute_volatility_target_size(0.15, 0.10)
         assert high_vol < low_vol
 
     def test_zero_volatility_returns_zero(self) -> None:
         """Zero asset volatility → zero (avoid division by zero)."""
-        assert compute_volatility_target_size(0.15, 0.0, 100000, 100) == 0.0
+        assert compute_volatility_target_size(0.15, 0.0) == 0.0
 
     def test_capped_at_one(self) -> None:
         """Never exceeds 100% of portfolio."""
-        size = compute_volatility_target_size(0.50, 0.01, 100000, 100)
+        size = compute_volatility_target_size(0.50, 0.01)
         assert size <= 1.0
 
 
@@ -139,6 +139,19 @@ class TestComputeSizing:
         )
         result = compute_sizing(self._make_context(), skill)
         assert result.position_size_pct == 0.02
+
+    def test_existing_exposure_caps_sizing(self) -> None:
+        """Position capped by remaining portfolio capacity."""
+        ctx = self._make_context()
+        ctx.existing_exposure = 0.95  # already 95% exposed
+        skill = SizingSkill(
+            "fixed-v1",
+            SizingMethod.FIXED_FRACTIONAL,
+            "Fixed",
+            {"fixed_fraction": 0.10},
+        )
+        result = compute_sizing(ctx, skill)
+        assert result.position_size_pct <= 0.05  # capped at remaining 5%
 
 
 # --- Composition interface tests ---
