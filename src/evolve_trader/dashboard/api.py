@@ -7,11 +7,13 @@ Approval and kill-switch actions are deferred to Phases 6 and 11.
 from __future__ import annotations
 
 import os
+import threading
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from evolve_trader.db.engine import create_db_engine, create_tables, get_session_factory
@@ -42,19 +44,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Database setup (lazy init) ---
+# --- Database setup (lazy init, thread-safe) ---
 
 _engine = None
 _SessionFactory = None
+_db_lock = threading.Lock()
 
 
 def _init_db() -> None:
     global _engine, _SessionFactory  # noqa: PLW0603
-    if _engine is None:
-        db_url = os.environ.get("DATABASE_URL", "sqlite:///data/evolve_trader.db")
-        _engine = create_db_engine(db_url)
-        create_tables(_engine)
-        _SessionFactory = get_session_factory(_engine)
+    if _engine is not None:
+        return
+    with _db_lock:
+        if _engine is None:
+            db_url = os.environ.get("DATABASE_URL", "sqlite:///data/evolve_trader.db")
+            _engine = create_db_engine(db_url)
+            create_tables(_engine)
+            _SessionFactory = get_session_factory(_engine)
 
 
 def get_db() -> Session:  # type: ignore[misc]
@@ -120,7 +126,6 @@ def get_trades(
     elif ticker:
         trades = repo.get_by_ticker(ticker)
     else:
-        from sqlalchemy import select
 
         stmt = select(TradeLog).order_by(TradeLog.created_at.desc()).limit(limit)
         trades = list(db.scalars(stmt).all())
@@ -159,7 +164,6 @@ def get_signals(
     if source:
         signals = repo.get_by_source(source, limit=limit)
     else:
-        from sqlalchemy import select
 
         stmt = select(SignalEventRecord).order_by(SignalEventRecord.created_at.desc()).limit(limit)
         signals = list(db.scalars(stmt).all())
@@ -189,7 +193,6 @@ def get_evolution_events(
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
     """Recent evolution events (FIX/DERIVED/CAPTURED)."""
-    from sqlalchemy import select
 
     stmt = (
         select(EvolutionEventRecord).order_by(EvolutionEventRecord.created_at.desc()).limit(limit)
@@ -250,7 +253,6 @@ def get_llm_costs(db: Session = Depends(get_db)) -> dict[str, Any]:
 @app.get("/api/status")
 def get_system_status(db: Session = Depends(get_db)) -> dict[str, Any]:
     """Overall system status for operator visibility."""
-    from sqlalchemy import func, select
 
     strategy_count = db.scalar(select(func.count()).select_from(TradeLog)) or 0
     signal_count = db.scalar(select(func.count()).select_from(SignalEventRecord)) or 0

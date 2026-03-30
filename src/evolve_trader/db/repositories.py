@@ -34,12 +34,22 @@ class TradeLogRepository:
     def get_by_id(self, trade_id: int) -> TradeLog | None:
         return self._session.get(TradeLog, trade_id)
 
-    def get_by_strategy(self, strategy: str) -> list[TradeLog]:
-        stmt = select(TradeLog).where(TradeLog.strategy_skill == strategy)
+    def get_by_strategy(self, strategy: str, limit: int = 100) -> list[TradeLog]:
+        stmt = (
+            select(TradeLog)
+            .where(TradeLog.strategy_skill == strategy)
+            .order_by(TradeLog.created_at.desc())
+            .limit(limit)
+        )
         return list(self._session.scalars(stmt).all())
 
-    def get_by_ticker(self, ticker: str) -> list[TradeLog]:
-        stmt = select(TradeLog).where(TradeLog.ticker == ticker)
+    def get_by_ticker(self, ticker: str, limit: int = 100) -> list[TradeLog]:
+        stmt = (
+            select(TradeLog)
+            .where(TradeLog.ticker == ticker)
+            .order_by(TradeLog.created_at.desc())
+            .limit(limit)
+        )
         return list(self._session.scalars(stmt).all())
 
 

@@ -28,35 +28,53 @@ interface Costs {
   cost_by_component: Record<string, number>;
 }
 
-function useFetch<T>(url: string, fallback: T): T {
+function useFetch<T>(url: string, fallback: T, refreshMs = 10_000): { data: T; error: boolean } {
   const [data, setData] = useState<T>(fallback);
+  const [error, setError] = useState(false);
   useEffect(() => {
-    fetch(url).then((r) => r.json()).then(setData).catch(() => {});
-  }, [url]);
-  return data;
+    let active = true;
+    const doFetch = () => {
+      fetch(url)
+        .then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+        .then((d: T) => { if (active) { setData(d); setError(false); } })
+        .catch(() => { if (active) setError(true); });
+    };
+    doFetch();
+    const id = setInterval(doFetch, refreshMs);
+    return () => { active = false; clearInterval(id); };
+  }, [url, refreshMs]);
+  return { data, error };
 }
 
 export function App() {
-  const status = useFetch<SystemStatus>("/api/status", {
+  const { data: status, error: statusErr } = useFetch<SystemStatus>("/api/status", {
     mode: "loading...", total_trades: 0, total_signals: 0,
     total_evolution_events: 0, kill_switch_status: "unknown",
     approval_queue_size: 0, evolution_paused: false,
   });
 
-  const portfolio = useFetch<Portfolio>("/api/portfolio/latest", {
+  const { data: portfolio } = useFetch<Portfolio>("/api/portfolio/latest", {
     total_value: 0, cash: 0, drawdown: 0, sharpe_ratio: null,
   });
 
-  const trades = useFetch<Record<string, unknown>[]>("/api/trades?limit=10", []);
-  const signals = useFetch<Record<string, unknown>[]>("/api/signals?limit=10", []);
-  const evolution = useFetch<Record<string, unknown>[]>("/api/evolution?limit=10", []);
-  const costs = useFetch<Costs>("/api/costs", { total_cost_usd: 0, cost_by_component: {} });
+  const { data: trades } = useFetch<Record<string, unknown>[]>("/api/trades?limit=10", []);
+  const { data: signals } = useFetch<Record<string, unknown>[]>("/api/signals?limit=10", []);
+  const { data: evolution } = useFetch<Record<string, unknown>[]>("/api/evolution?limit=10", []);
+  const { data: costs } = useFetch<Costs>("/api/costs", { total_cost_usd: 0, cost_by_component: {} });
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: colors.bg }}>
       <Sidebar />
 
       <div style={{ marginLeft: 240, flex: 1 }}>
+        {statusErr && (
+          <div style={{
+            background: colors.redSoft, color: colors.red, padding: "8px 24px",
+            fontSize: 13, fontWeight: 500,
+          }}>
+            Unable to connect to API — dashboard data may be stale
+          </div>
+        )}
         <TopBar
           mode={status.mode}
           totalTrades={status.total_trades}
