@@ -8,34 +8,9 @@ dependencies = [
     "pydantic>=2.0",
     "litellm>=1.0",
     # Data
-    "sqlalchemy>=2.0",
-    "alembic>=1.0",
-    # API
-    "fastapi>=0.100",
-    "uvicorn>=0.20",
-    "httpx>=0.24",
-    # Analysis & Metrics
     "numpy>=1.24",
     "pandas>=2.0",
     "scipy>=1.10",
-    "quantstats>=0.0.62",
-    "empyrical>=0.5.5",
-    # Market Data
-    "yfinance>=0.2.0",
-    # SEC EDGAR Parsing
-    "pibou-filings>=0.1.0",
-    # Congressional Trading (House Clerk scraper)
-    "congressional-trading>=0.1.0",
-    # Technical Indicators
-    "ta>=0.10",
-    # Portfolio Optimization (Phase 4)
-    "PyPortfolioOpt>=1.5",
-    # Brokerage (Phase 6+)
-    "alpaca-py>=0.20",
-    # Scheduling (signal polling, scraper intervals)
-    "APScheduler>=3.10",
-    # Evolution (Phase 8 incubator foundation)
-    "deap>=1.4",
 ]
 
 [project.optional-dependencies]
@@ -46,6 +21,43 @@ dev = [
     "ruff>=0.1",
     "black>=23.0",
     "mypy>=1.0",
+]
+# Phase 1: replay harness, metrics, market data
+phase1 = [
+    "quantstats>=0.0.62",
+    "empyrical>=0.5.5",
+    "yfinance>=0.2.0",
+    "ta>=0.10",
+]
+# Phase 2: persistence, signals, EDGAR, congressional scraping
+phase2 = [
+    "sqlalchemy>=2.0",
+    "alembic>=1.0",
+    "pibou-filings>=0.1.0",
+    "congressional-trading>=0.1.0",
+    "APScheduler>=3.10",
+]
+# Phase 4: portfolio optimization
+phase4 = [
+    "PyPortfolioOpt>=1.5",
+]
+# Phase 5: dashboard API
+phase5 = [
+    "fastapi>=0.100",
+    "uvicorn>=0.20",
+    "httpx>=0.24",
+]
+# Phase 6+: brokerage
+phase6 = [
+    "alpaca-py>=0.20",
+]
+# Phase 8: evolutionary incubator
+phase8 = [
+    "deap>=1.4",
+]
+# All phases combined
+all = [
+    "evolve-trader[phase1,phase2,phase4,phase5,phase6,phase8]",
 ]
 
 [build-system]

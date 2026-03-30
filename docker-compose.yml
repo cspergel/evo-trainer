@@ -13,22 +13,18 @@ services:
     volumes:
       - evolve_trader_pgdata:/var/lib/postgresql/data
 
-  app:
+  # Test runner — validates the project builds and passes in a clean environment.
+  # Phase 5+ will add an app service with FastAPI when the dashboard exists.
+  test:
     build: .
-    container_name: evolve-trader-app
-    ports:
-      - "8100:8000"
-    environment:
-      DATABASE_URL: postgresql://evolve_trader:dev_password@db:5432/evolve_trader
-      LITELLM_API_KEY: ${LITELLM_API_KEY:-}
-      ALPACA_API_KEY: ${ALPACA_API_KEY:-}
-      ALPACA_SECRET_KEY: ${ALPACA_SECRET_KEY:-}
-      ALPACA_BASE_URL: ${ALPACA_BASE_URL:-https://paper-api.alpaca.markets}
+    container_name: evolve-trader-test
     volumes:
       - ./src:/app/src
       - ./tests:/app/tests
     depends_on:
       - db
+    environment:
+      DATABASE_URL: postgresql://evolve_trader:dev_password@db:5432/evolve_trader
 
 volumes:
   evolve_trader_pgdata:

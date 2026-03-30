@@ -1,6 +1,10 @@
 # Integration Analysis — OpenSpace + AI-Trader
 
 > Generated from Phase 0 code exploration. All findings verified against source code.
+>
+> **Pinned upstream revisions (git submodules):**
+> - OpenSpace: `11bdf128d9b53a4107aec1d3098fa04ab808a700` (HKUDS/OpenSpace)
+> - AI-Trader: `3b3169b756002518b752baae994a2d1bdbb70600` (HKUDS/AI-Trader)
 
 ---
 

@@ -1,0 +1,6 @@
+[submodule "lib/openspace"]
+	path = lib/openspace
+	url = https://github.com/HKUDS/OpenSpace.git
+[submodule "lib/ai-trader"]
+	path = lib/ai-trader
+	url = https://github.com/HKUDS/AI-Trader.git
