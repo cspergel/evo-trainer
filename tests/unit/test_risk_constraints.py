@@ -136,3 +136,22 @@ def test_multiple_constraints_drawdown_checked_first():
     )
     assert result.allowed is False
     assert result.violation == ConstraintViolation.DRAWDOWN_LIMIT
+
+
+def test_sell_always_allowed():
+    """Sells (negative trade_value) reduce risk and are always allowed."""
+    constraints = RiskConstraints()
+    portfolio = PortfolioState(
+        total_value=100_000,
+        positions={"AAPL": 5000},
+        sector_exposure={"Technology": 0.05},
+        current_drawdown=0.25,  # even during forced de-risk
+    )
+    result = check_trade_allowed(
+        constraints=constraints,
+        portfolio=portfolio,
+        ticker="AAPL",
+        sector="Technology",
+        trade_value=-3000,
+    )
+    assert result.allowed is True

@@ -62,6 +62,8 @@ class VersionDAG:
         metrics: dict[str, float] | None = None,
     ) -> None:
         """Record a FIX or DERIVED evolution event."""
+        if parent not in self._parents:
+            raise ValueError(f"Parent '{parent}' not found in DAG")
         self._parents[child] = parent
         self._children.setdefault(parent, []).append(child)
         self._children.setdefault(child, [])
@@ -110,8 +112,68 @@ class VersionDAG:
         """Trace the full lineage from root to this skill."""
         lineage: list[str] = []
         current: str | None = skill_name
+        visited: set[str] = set()
         while current is not None:
+            if current in visited:
+                raise ValueError(f"Cycle detected in lineage at '{current}'")
+            visited.add(current)
             lineage.append(current)
             current = self._parents.get(current)
         lineage.reverse()
         return lineage
+
+    def to_dict(self) -> dict[str, object]:
+        """Serialize the DAG to a dictionary for persistence."""
+        return {
+            "parents": dict(self._parents),
+            "events": {
+                name: [
+                    {
+                        "parent": e.parent,
+                        "child": e.child,
+                        "mode": e.mode.value,
+                        "reason": e.reason,
+                        "timestamp": e.timestamp.isoformat(),
+                        "metrics": e.metrics,
+                    }
+                    for e in events
+                ]
+                for name, events in self._events.items()
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> VersionDAG:
+        """Deserialize a DAG from a dictionary."""
+        dag = cls()
+        parents = data.get("parents", {})
+        events_data = data.get("events", {})
+
+        assert isinstance(parents, dict)
+        assert isinstance(events_data, dict)
+
+        # Rebuild parents and children
+        for child, parent in parents.items():
+            assert isinstance(child, str)
+            dag._parents[child] = parent if isinstance(parent, str) else None
+            dag._children.setdefault(child, [])
+            if isinstance(parent, str):
+                dag._children.setdefault(parent, []).append(child)
+
+        # Rebuild events
+        for name, event_list in events_data.items():
+            assert isinstance(name, str)
+            assert isinstance(event_list, list)
+            dag._events[name] = [
+                EvolutionEvent(
+                    parent=e["parent"] if isinstance(e.get("parent"), str) else None,
+                    child=str(e["child"]),
+                    mode=EvolutionMode(str(e["mode"])),
+                    reason=str(e["reason"]),
+                    metrics=dict(e.get("metrics", {})),
+                )
+                for e in event_list
+                if isinstance(e, dict)
+            ]
+
+        return dag

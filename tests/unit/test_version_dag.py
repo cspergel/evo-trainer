@@ -1,5 +1,7 @@
 """Tests for the version DAG tracking skill lineage."""
 
+import pytest
+
 from evolve_trader.core.version_dag import (
     EvolutionMode,
     VersionDAG,
@@ -90,3 +92,30 @@ def test_get_events_unknown_skill():
     """Unknown skill returns empty events list."""
     dag = VersionDAG()
     assert dag.get_events("nonexistent") == []
+
+
+def test_add_evolution_rejects_unknown_parent():
+    """Cannot add evolution from a parent not in the DAG."""
+    dag = VersionDAG()
+    with pytest.raises(ValueError, match="not found"):
+        dag.add_evolution(
+            parent="nonexistent", child="child", mode=EvolutionMode.FIX, reason="test"
+        )
+
+
+def test_serialization_roundtrip():
+    """DAG survives to_dict/from_dict roundtrip."""
+    dag = VersionDAG()
+    dag.add_root("momentum-v1")
+    dag.add_evolution(
+        parent="momentum-v1", child="momentum-v2", mode=EvolutionMode.FIX, reason="fix"
+    )
+
+    data = dag.to_dict()
+    restored = VersionDAG.from_dict(data)
+
+    assert restored.get_parent("momentum-v2") == "momentum-v1"
+    assert restored.get_lineage("momentum-v2") == ["momentum-v1", "momentum-v2"]
+    events = restored.get_events("momentum-v2")
+    assert len(events) == 1
+    assert events[0].mode == EvolutionMode.FIX

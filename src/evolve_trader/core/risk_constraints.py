@@ -61,7 +61,12 @@ def check_trade_allowed(
     automation level. This is the first gate in the execution pipeline.
 
     Check order: portfolio value -> drawdown -> position size -> sector.
+    Sells (negative trade_value) are allowed without constraint checks.
     """
+    if trade_value <= 0:
+        # Sells/reductions reduce risk — always allowed
+        return TradeCheckResult(allowed=True)
+
     if portfolio.total_value <= 0:
         return TradeCheckResult(
             allowed=False,

@@ -84,3 +84,11 @@ def test_boundary_at_train_end():
         validate_end=40,
     )
     assert validate_no_lookahead(window, data_timestamp=30) is False
+
+
+def test_step_days_zero_rejected():
+    """step_days=0 would cause infinite loop — rejected at construction."""
+    import pytest
+
+    with pytest.raises(ValueError, match="step_days"):
+        WalkForwardConfig(total_days=100, step_days=0)

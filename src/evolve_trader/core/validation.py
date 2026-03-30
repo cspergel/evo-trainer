@@ -23,6 +23,14 @@ class WalkForwardConfig:
     validate_days: int = 10
     step_days: int = 10
 
+    def __post_init__(self) -> None:
+        if self.step_days <= 0:
+            raise ValueError("step_days must be positive")
+        if self.train_days <= 0:
+            raise ValueError("train_days must be positive")
+        if self.validate_days <= 0:
+            raise ValueError("validate_days must be positive")
+
 
 @dataclass
 class WalkForwardWindow:
