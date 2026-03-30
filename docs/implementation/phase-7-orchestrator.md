@@ -18,6 +18,9 @@ Add the cross-layer orchestrator that supervises evolution and system tuning.
 - Threshold calibration
 - Discovery tuning hooks
 - Adjustment log
+- CAPTURED evolution mode — detect emergent patterns from execution logs and create new skills (currently deferred from Phase 1; evaluate deep OpenSpace integration vs building our own)
+- Auto-triggered evolution — background monitoring that triggers FIX/DERIVED when metrics degrade (replaces Phase 1's manual triggering)
+- Tool-assisted evolution — give the LLM access to market data and test harness during the evolution agent loop (richer than Phase 1's single prompt/response)
 
 ## Contracts
 
