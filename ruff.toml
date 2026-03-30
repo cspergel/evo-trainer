@@ -3,3 +3,7 @@ target-version = "py312"
 
 [lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
+
+[lint.per-file-ignores]
+# FastAPI uses Depends() in function defaults — this is the standard pattern
+"src/evolve_trader/dashboard/api.py" = ["B008"]
