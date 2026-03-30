@@ -11,17 +11,24 @@ Move persistence to PostgreSQL and establish the first signal-ingestion framewor
 ## Owns
 
 - PostgreSQL schema and repositories
-- Migration path from Phase 1 persistence
 - `SignalEvent` type system
 - Decay library
 - Source registration framework
 - EDGAR 13F ingestion (via `pibou-filings` package — parses 13F-HR XML into structured holdings with CUSIPs)
 - EDGAR Form 4 ingestion (via `pibou-filings` package — parses Section 16 XML into transaction-level data)
-- CUSIP-to-ticker mapping layer (OpenFIGI API, free)
-- Real-time filing alerts (reference: `py-sec-edgar` RSS workflow)
 - Congressional trading ingestion: House via `congressional-trading` PyPI package, Senate via Capitol Trades scraper, committee enrichment via ProPublica Congress API
 - Basic regime classifier
-- PostgreSQL-backed `LLMUsageLogger`
+- Domain-to-ORM converters (TradeResult↔TradeLog, SignalEvent↔SignalEventRecord, EvolutionEvent↔EvolutionEventRecord)
+
+## Deferred (tracked for later phases)
+
+- CUSIP-to-ticker mapping layer (OpenFIGI API) — add when 13F live polling is wired
+- Real-time filing alerts (SEC EDGAR RSS) — add when live signal polling is needed
+- Migration script from Phase 1 JSONL to PostgreSQL — add when PostgreSQL is in production use
+- PostgreSQL-backed `LLMUsageLogger` swap — DB repository exists, logger backend swap deferred
+- Senate data (Capitol Trades scraper) — noted in congressional source TODO
+- Committee enrichment (ProPublica Congress API) — noted in congressional source TODO
+- Signal source `fetch_signals()` live polling — parsers/converters exist, polling deferred to Phase 6+
 
 ## Contracts
 
@@ -37,8 +44,7 @@ Move persistence to PostgreSQL and establish the first signal-ingestion framewor
 
 ## Acceptance Criteria
 
-- SQLite/file-backed Phase 1 data migrates without duplication
 - Signal sources register and emit typed events
 - Basic regime classifier consumes those events
-- Logger costs and budget metrics are queryable from PostgreSQL
-
+- ORM models cover all domain types with typed repositories
+- Converters bridge in-memory types to database records
