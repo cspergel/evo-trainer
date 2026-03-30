@@ -1,0 +1,34 @@
+name: evolve-trader
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: evolve-trader-db
+    environment:
+      POSTGRES_DB: evolve_trader
+      POSTGRES_USER: evolve_trader
+      POSTGRES_PASSWORD: dev_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - evolve_trader_pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: evolve-trader-app
+    ports:
+      - "8100:8000"
+    environment:
+      DATABASE_URL: postgresql://evolve_trader:dev_password@db:5432/evolve_trader
+      LITELLM_API_KEY: ${LITELLM_API_KEY:-}
+      ALPACA_API_KEY: ${ALPACA_API_KEY:-}
+      ALPACA_SECRET_KEY: ${ALPACA_SECRET_KEY:-}
+      ALPACA_BASE_URL: ${ALPACA_BASE_URL:-https://paper-api.alpaca.markets}
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+    depends_on:
+      - db
+
+volumes:
+  evolve_trader_pgdata:

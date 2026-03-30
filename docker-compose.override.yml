@@ -1,0 +1,6 @@
+services:
+  app:
+    command: pytest -v
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests

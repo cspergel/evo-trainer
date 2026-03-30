@@ -1,0 +1,67 @@
+[project]
+name = "evolve-trader"
+version = "0.1.0"
+description = "Evolutionary Strategy Discovery via Self-Evolving Agent Skills"
+requires-python = ">=3.12"
+dependencies = [
+    # Core
+    "pydantic>=2.0",
+    "litellm>=1.0",
+    # Data
+    "sqlalchemy>=2.0",
+    "alembic>=1.0",
+    # API
+    "fastapi>=0.100",
+    "uvicorn>=0.20",
+    "httpx>=0.24",
+    # Analysis & Metrics
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scipy>=1.10",
+    "quantstats>=0.0.62",
+    "empyrical>=0.5.5",
+    # Market Data
+    "yfinance>=0.2.0",
+    # SEC EDGAR Parsing
+    "pibou-filings>=0.1.0",
+    # Congressional Trading (House Clerk scraper)
+    "congressional-trading>=0.1.0",
+    # Technical Indicators
+    "ta>=0.10",
+    # Portfolio Optimization (Phase 4)
+    "PyPortfolioOpt>=1.5",
+    # Brokerage (Phase 6+)
+    "alpaca-py>=0.20",
+    # Scheduling (signal polling, scraper intervals)
+    "APScheduler>=3.10",
+    # Evolution (Phase 8 incubator foundation)
+    "deap>=1.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-asyncio>=0.21",
+    "ruff>=0.1",
+    "black>=23.0",
+    "mypy>=1.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.black]
+line-length = 100
