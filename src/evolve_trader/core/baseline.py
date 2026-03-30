@@ -58,7 +58,7 @@ def compute_baseline(
         # Cash benchmark: risk-free rate
         days = (end - start).days
         annual_return = risk_free_rate
-        total_return = annual_return * days / 365
+        total_return = (1 + annual_return) ** (days / 365) - 1
         return BaselineResult(
             benchmark_type=benchmark,
             ticker="CASH",
@@ -111,8 +111,8 @@ def _compute_from_yfinance(
     std = float(np.std(excess, ddof=1))
     sharpe = float(np.mean(excess) / std * np.sqrt(252)) if std > 1e-12 else 0.0
 
-    # Max drawdown
-    cumulative = np.cumprod(1 + daily_returns)
+    # Max drawdown (prepend 1.0 so initial value is the first peak)
+    cumulative = np.concatenate([[1.0], np.cumprod(1 + daily_returns)])
     peak = np.maximum.accumulate(cumulative)
     drawdown = (peak - cumulative) / np.where(peak == 0, 1, peak)
     max_dd = float(np.max(drawdown)) if len(drawdown) > 0 else 0.0
@@ -142,7 +142,7 @@ def _compute_synthetic(
     """
     days = (end - start).days
     annual_return = 0.10  # Historical SPY average
-    total_return = annual_return * days / 365
+    total_return = (1 + annual_return) ** (days / 365) - 1
 
     # Historical SPY Sharpe ~ 0.6-0.7
     sharpe = 0.65

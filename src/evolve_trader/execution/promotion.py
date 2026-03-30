@@ -22,6 +22,7 @@ class PromotionStage(Enum):
     MICRO_LIVE = "micro_live"  # 5-10% capital, human approval every trade
     PARTIAL_LIVE = "partial_live"  # 25-50% capital, approval for large trades
     FULL_LIVE = "full_live"  # 100% capital, auto-approval within constraints
+    KILLED = "killed"  # Strategy permanently retired
 
 
 @dataclass
@@ -34,9 +35,12 @@ class PromotionState:
     trades_in_stage: int = 0
     stage_sharpe: float = 0.0
     stage_max_drawdown: float = 0.0
+    stage_win_rate: float = 0.5
     paper_live_correlation: float | None = None
     promoted_at: datetime | None = None
     demoted_at: datetime | None = None
+    consecutive_demotions: int = 0
+    days_edge_below_zero: int = 0
 
 
 # Promotion thresholds per stage
@@ -71,11 +75,21 @@ _DEMOTION_TRIGGERS: dict[str, float] = {
 
 
 def evaluate_promotion(state: PromotionState) -> PromotionStage:
-    """Evaluate whether a strategy should be promoted or demoted.
+    """Evaluate whether a strategy should be promoted, demoted, or killed.
 
     Returns the new stage. Does NOT mutate state — caller decides
     whether to apply the change.
     """
+    # Already killed — no recovery
+    if state.stage == PromotionStage.KILLED:
+        return PromotionStage.KILLED
+
+    # Kill triggers (contract section 8) — any stage
+    if state.days_edge_below_zero >= 30:
+        return PromotionStage.KILLED
+    if state.consecutive_demotions >= 3:
+        return PromotionStage.KILLED
+
     # Check demotion first (any stage except paper training)
     if state.stage != PromotionStage.PAPER_TRAINING:
         if state.stage_sharpe < _DEMOTION_TRIGGERS["sharpe_below"]:
@@ -102,6 +116,7 @@ def evaluate_promotion(state: PromotionState) -> PromotionStage:
             state.days_in_stage >= thresholds.get("min_days", 60)
             and state.stage_sharpe >= thresholds.get("min_sharpe", 0.5)
             and state.stage_max_drawdown <= thresholds.get("max_drawdown", 0.15)
+            and state.stage_win_rate >= thresholds.get("min_win_rate", 0.45)
         ):
             return PromotionStage.MICRO_LIVE
 
@@ -114,7 +129,11 @@ def evaluate_promotion(state: PromotionState) -> PromotionStage:
             return PromotionStage.PARTIAL_LIVE
 
     elif state.stage == PromotionStage.PARTIAL_LIVE:  # noqa: SIM102
-        if state.days_in_stage >= thresholds.get("min_days", 60):
+        if (
+            state.days_in_stage >= thresholds.get("min_days", 60)
+            and state.stage_sharpe >= 0.5
+            and state.stage_max_drawdown <= 0.15
+        ):
             return PromotionStage.FULL_LIVE
 
     # No change

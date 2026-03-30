@@ -91,7 +91,7 @@ def run_pipeline(
     result = PipelineResult(intent=intent, gate_results=[])
 
     # --- Gate 1: Immutable risk constraints ---
-    trade_value = intent.quantity * 100  # approximate value
+    trade_value = intent.notional_value
     if intent.direction == "SELL":
         trade_value = -trade_value
 

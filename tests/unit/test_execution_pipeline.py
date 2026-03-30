@@ -20,6 +20,7 @@ def _make_intent(**kwargs) -> TradeIntent:  # type: ignore[no-untyped-def]
         ticker="AAPL",
         direction="BUY",
         quantity=10,
+        price_estimate=150.0,
         strategy_skill="momentum-v1",
         confidence=0.9,
         regime_label="risk-on",
@@ -221,4 +222,33 @@ class TestPromotion:
 
         state.stage = PromotionStage.PARTIAL_LIVE
         state.days_in_stage = 65
+        state.stage_sharpe = 0.7
+        state.stage_max_drawdown = 0.08
         assert evaluate_promotion(state) == PromotionStage.FULL_LIVE
+
+    def test_kill_on_sustained_negative_edge(self) -> None:
+        """Strategy killed after 30 days with edge below zero."""
+        state = PromotionState(
+            strategy_name="bad-strategy",
+            stage=PromotionStage.PAPER_VALIDATION,
+            days_edge_below_zero=30,
+        )
+        assert evaluate_promotion(state) == PromotionStage.KILLED
+
+    def test_kill_on_repeated_demotions(self) -> None:
+        """Strategy killed after 3 consecutive demotions."""
+        state = PromotionState(
+            strategy_name="unstable-strategy",
+            stage=PromotionStage.MICRO_LIVE,
+            consecutive_demotions=3,
+        )
+        assert evaluate_promotion(state) == PromotionStage.KILLED
+
+    def test_killed_stays_killed(self) -> None:
+        """Killed strategy cannot recover."""
+        state = PromotionState(
+            strategy_name="dead-strategy",
+            stage=PromotionStage.KILLED,
+            stage_sharpe=2.0,
+        )
+        assert evaluate_promotion(state) == PromotionStage.KILLED
