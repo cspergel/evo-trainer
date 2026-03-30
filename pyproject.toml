@@ -78,7 +78,7 @@ python_version = "3.12"
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["scipy.*", "empyrical.*", "quantstats.*", "pandas.*", "piboufilings.*", "congressional_trading.*"]
+module = ["scipy.*", "empyrical.*", "quantstats.*", "pandas.*", "piboufilings.*", "congressional_trading.*", "yfinance.*", "alpaca.*"]
 ignore_missing_imports = true
 
 [tool.black]
