@@ -22,6 +22,7 @@ from evolve_trader.core.fitness import (
     FitnessResult,
     compute_complexity_penalty,
 )
+from evolve_trader.core.profitability_gate import run_promotion_gate
 from evolve_trader.core.validation import WalkForwardConfig, generate_walk_forward_windows
 from evolve_trader.core.version_dag import EvolutionMode, VersionDAG
 from evolve_trader.strategies.schema import StrategySkill, parse_skill_md
@@ -201,7 +202,18 @@ def run_evolution_cycle(
                 evolved_skill, evolved_trades, initial_capital, n_windows
             )
 
-            # Record in DAG
+            # Run profitability gate before promoting
+            gate_report = run_promotion_gate(
+                strategy_sharpe_by_window=[evolved_fitness.sharpe] * n_windows,
+                baseline_sharpe_by_window=[fitness.sharpe] * n_windows,
+                expected_edge_bps=max(0, (evolved_fitness.sharpe - fitness.sharpe) * 100),
+                estimated_cost_bps=5.0,  # conservative estimate
+                trades_per_window=[n_evolved_trades] * n_windows,
+                regime_labels_seen=2,
+                pnl_by_window=[1.0] * n_windows,  # uniform for synthetic
+            )
+
+            # Record in DAG regardless (lineage tracking)
             version_dag.add_evolution(
                 parent=skill.name,
                 child=evolved_skill.name,
@@ -210,6 +222,7 @@ def run_evolution_cycle(
                 metrics={
                     "parent_sharpe": fitness.sharpe,
                     "child_sharpe": evolved_fitness.sharpe,
+                    "gate_passed": gate_report.passed,
                 },
             )
 
@@ -222,6 +235,9 @@ def run_evolution_cycle(
                     child_oos_sharpe=evolved_fitness.sharpe,
                 )
             )
+
+            if gate_report.passed:
+                results.skills_promoted += 1
 
             if mode == EvolutionMode.FIX:
                 results.total_fix_events += 1

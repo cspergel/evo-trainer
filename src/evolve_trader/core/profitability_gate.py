@@ -286,20 +286,110 @@ def run_promotion_gate(
     trades_per_window: list[int],
     regime_labels_seen: int,
     pnl_by_window: list[float],
+    active_strategies: int = 1,
+    active_signal_sources: int = 1,
+    universe: str = "sp500",
+    paper_live_correlation: float | None = None,
+    sharpe_with_component: float | None = None,
+    sharpe_without_component: float | None = None,
+    experiment_count: int = 0,
 ) -> GateReport:
-    """Run all promotion checks for a strategy.
+    """Run ALL promotion checks for a strategy.
 
     This is the single entry point for strategy promotion decisions.
-    A strategy must pass ALL checks to be promoted.
+    A strategy must pass ALL checks to be promoted. Covers every
+    section of the profitability contract.
     """
     report = GateReport()
 
+    # Section 1: Baseline-beating
     report.checks.append(
         check_baseline_beating(strategy_sharpe_by_window, baseline_sharpe_by_window)
     )
+
+    # Section 2: Executable alpha
     report.checks.append(check_executable_alpha(expected_edge_bps, estimated_cost_bps))
+
+    # Section 3: Statistical bar
     report.checks.append(
         check_statistical_bar(trades_per_window, regime_labels_seen, pnl_by_window)
     )
 
+    # Section 4: Capacity — checked per-trade in compose_trade, not here
+
+    # Section 5: Multiple-testing discipline
+    report.checks.append(check_multiple_testing(experiment_count, strategy_sharpe_by_window))
+
+    # Section 6: Scope constraints
+    report.checks.append(
+        check_scope_constraints(active_strategies, active_signal_sources, universe)
+    )
+
+    # Section 7: Simplicity tax (if component A/B data provided)
+    if sharpe_with_component is not None and sharpe_without_component is not None:
+        report.checks.append(check_simplicity_tax(sharpe_with_component, sharpe_without_component))
+
+    # Section 10: Paper/live deviation (if correlation data available)
+    if paper_live_correlation is not None:
+        report.checks.append(check_paper_live_correlation(paper_live_correlation))
+
     return report
+
+
+# --- Section 5: Multiple-testing discipline ---
+
+# Penalty tiers: more experiments = stricter Sharpe threshold
+_EXPERIMENT_PENALTY_TIERS = [
+    (10, 0.0),  # <= 10 experiments: no penalty
+    (50, 0.1),  # 11-50: +0.1 Sharpe required
+    (200, 0.2),  # 51-200: +0.2 Sharpe required
+    (1000, 0.3),  # 201-1000: +0.3 Sharpe required
+]
+
+
+def check_multiple_testing(
+    experiment_count: int,
+    strategy_sharpe_by_window: list[float],
+) -> GateCheck:
+    """Section 5: Penalize promotion when many experiments were run.
+
+    The more candidates tested, the higher the Sharpe bar for the winner.
+    """
+    penalty = 0.0
+    for threshold, pen in _EXPERIMENT_PENALTY_TIERS:
+        if experiment_count <= threshold:
+            penalty = pen
+            break
+    else:
+        penalty = 0.4  # > 1000 experiments
+
+    if not strategy_sharpe_by_window:
+        return GateCheck(
+            name="multiple_testing",
+            result=GateResult.INSUFFICIENT_DATA,
+            message="No Sharpe data",
+        )
+
+    avg_sharpe = sum(strategy_sharpe_by_window) / len(strategy_sharpe_by_window)
+    adjusted_threshold = penalty  # Must clear this after penalty
+
+    if experiment_count <= 10:
+        # Few experiments — no penalty, always pass
+        return GateCheck(
+            name="multiple_testing",
+            result=GateResult.PASS,
+            message=f"{experiment_count} experiments, no penalty applied",
+            value=float(experiment_count),
+        )
+
+    passed = avg_sharpe > adjusted_threshold
+    return GateCheck(
+        name="multiple_testing",
+        result=GateResult.PASS if passed else GateResult.FAIL,
+        message=(
+            f"{experiment_count} experiments, penalty +{penalty:.1f} Sharpe. "
+            f"Avg Sharpe {avg_sharpe:.2f} vs threshold {adjusted_threshold:.1f}"
+        ),
+        value=avg_sharpe,
+        threshold=adjusted_threshold,
+    )

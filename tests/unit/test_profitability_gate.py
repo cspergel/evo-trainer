@@ -5,6 +5,7 @@ from evolve_trader.core.profitability_gate import (
     check_baseline_beating,
     check_capacity,
     check_executable_alpha,
+    check_multiple_testing,
     check_paper_live_correlation,
     check_scope_constraints,
     check_simplicity_tax,
@@ -201,3 +202,67 @@ def test_full_promotion_fails_on_baseline():
     )
     assert not report.passed
     assert any(c.name == "baseline_beating" for c in report.failed_checks)
+
+
+# --- Section 5: Multiple testing ---
+
+
+def test_few_experiments_no_penalty():
+    """10 or fewer experiments have no penalty."""
+    result = check_multiple_testing(5, [1.0, 0.8, 1.2])
+    assert result.result == GateResult.PASS
+
+
+def test_many_experiments_raises_bar():
+    """100 experiments with low Sharpe fails."""
+    result = check_multiple_testing(100, [0.1, 0.15, 0.05])
+    assert result.result == GateResult.FAIL
+
+
+def test_many_experiments_high_sharpe_passes():
+    """100 experiments with high Sharpe still passes."""
+    result = check_multiple_testing(100, [1.5, 1.2, 1.8])
+    assert result.result == GateResult.PASS
+
+
+# --- Full gate with all checks ---
+
+
+def test_full_gate_includes_scope_and_testing():
+    """Full gate runs scope and multiple-testing checks."""
+    report = run_promotion_gate(
+        strategy_sharpe_by_window=[1.2, 1.0, 1.3],
+        baseline_sharpe_by_window=[0.8, 0.8, 0.8],
+        expected_edge_bps=25,
+        estimated_cost_bps=8,
+        trades_per_window=[35, 40, 32],
+        regime_labels_seen=3,
+        pnl_by_window=[1000, 900, 1100],
+        active_strategies=2,
+        active_signal_sources=2,
+        universe="sp500",
+        experiment_count=5,
+    )
+    check_names = {c.name for c in report.checks}
+    assert "baseline_beating" in check_names
+    assert "executable_alpha" in check_names
+    assert "statistical_bar" in check_names
+    assert "multiple_testing" in check_names
+    assert "scope_constraints" in check_names
+    assert report.passed
+
+
+def test_full_gate_with_paper_live():
+    """Full gate includes paper/live check when data provided."""
+    report = run_promotion_gate(
+        strategy_sharpe_by_window=[1.2, 1.0, 1.3],
+        baseline_sharpe_by_window=[0.8, 0.8, 0.8],
+        expected_edge_bps=25,
+        estimated_cost_bps=8,
+        trades_per_window=[35, 40, 32],
+        regime_labels_seen=3,
+        pnl_by_window=[1000, 900, 1100],
+        paper_live_correlation=0.5,  # below threshold
+    )
+    assert not report.passed
+    assert any(c.name == "paper_live_correlation" for c in report.failed_checks)
