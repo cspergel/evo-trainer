@@ -1,6 +1,6 @@
 """Signal conflict resolution.
 
-Handles opposing signals using confidence-weighted averaging.
+Handles opposing signals using source-weighted confidence averaging.
 Falls back to Capital Preservation when sources disagree equally.
 """
 
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from evolve_trader.selection.scoring import SourceScorecard
 from evolve_trader.signals.types import SignalEvent
 
 
@@ -22,12 +23,21 @@ class ConflictResult:
     resolution_method: str
 
 
-def resolve_signal_conflicts(signals: list[SignalEvent]) -> ConflictResult:
+def resolve_signal_conflicts(
+    signals: list[SignalEvent],
+    source_scorecards: dict[str, SourceScorecard] | None = None,
+    dominance_threshold: float = 0.65,
+) -> ConflictResult:
     """Resolve conflicts between opposing signals.
 
-    Uses confidence-weighted averaging:
-    - If one side dramatically outscores → that side wins
-    - If scores are similar → conflict is unresolved (capital preservation)
+    Uses source-weighted confidence: a Tier 1 source with 3.0x weight
+    dominates a Tier 3 source with 1.0x weight even at equal confidence.
+
+    Args:
+        signals: Active signal events.
+        source_scorecards: Optional source scoring data. If provided,
+            signal influence is weighted by effective_weight.
+        dominance_threshold: Proportion threshold (0-1) for one side to win.
     """
     buy_weight = 0.0
     sell_weight = 0.0
@@ -36,11 +46,18 @@ def resolve_signal_conflicts(signals: list[SignalEvent]) -> ConflictResult:
 
     for signal in signals:
         action = str(signal.payload.get("action", "")).upper()
+        # Weight by source quality if scorecards available
+        source_weight = 1.0
+        if source_scorecards and signal.source in source_scorecards:
+            source_weight = source_scorecards[signal.source].effective_weight
+
+        effective = signal.confidence * source_weight
+
         if action in ("BUY", "PURCHASE"):
-            buy_weight += signal.confidence
+            buy_weight += effective
             buy_sources.append(signal.source_entity)
         elif action in ("SELL", "SALE"):
-            sell_weight += signal.confidence
+            sell_weight += effective
             sell_sources.append(signal.source_entity)
 
     total = buy_weight + sell_weight
@@ -53,7 +70,6 @@ def resolve_signal_conflicts(signals: list[SignalEvent]) -> ConflictResult:
             resolution_method="no_signals",
         )
 
-    # Check if there's a genuine conflict (both sides present)
     has_conflict = bool(buy_sources and sell_sources)
 
     if not has_conflict:
@@ -66,11 +82,9 @@ def resolve_signal_conflicts(signals: list[SignalEvent]) -> ConflictResult:
             resolution_method="no_conflict",
         )
 
-    # Conflict exists — check if one side dominates
     dominance_ratio = max(buy_weight, sell_weight) / total
 
-    if dominance_ratio > 0.65:
-        # One side clearly wins
+    if dominance_ratio > dominance_threshold:
         direction = "buy" if buy_weight > sell_weight else "sell"
         return ConflictResult(
             resolved=True,
@@ -80,7 +94,6 @@ def resolve_signal_conflicts(signals: list[SignalEvent]) -> ConflictResult:
             resolution_method="dominance",
         )
 
-    # Signals are too close — unresolved conflict
     return ConflictResult(
         resolved=False,
         net_direction="neutral",
