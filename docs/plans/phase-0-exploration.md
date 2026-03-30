@@ -6,7 +6,7 @@
 
 **Architecture:** No new architecture in this phase — this is pure exploration and setup. We're building the foundation that every subsequent phase depends on.
 
-**Tech Stack:** Python 3.11+, pyproject.toml, ruff, black, mypy, pytest, GitHub Actions, Docker, Docker Compose
+**Tech Stack:** Python 3.12+, pyproject.toml, ruff, black, mypy, pytest, GitHub Actions, Docker, Docker Compose
 
 **Parent plan:** [`2026-03-29-evolve-trader-master-plan.md`](2026-03-29-evolve-trader-master-plan.md)
 
@@ -273,19 +273,11 @@ git commit -m "docs: integration plan and decision gate results"
 name = "evolve-trader"
 version = "0.1.0"
 description = "Evolutionary Strategy Discovery via Self-Evolving Agent Skills"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
-    # Core
+    # Core (minimal — later-phase deps live in optional extras)
     "pydantic>=2.0",
     "litellm>=1.0",
-    # Data
-    "sqlalchemy>=2.0",
-    "alembic>=1.0",
-    # API
-    "fastapi>=0.100",
-    "uvicorn>=0.20",
-    "httpx>=0.24",
-    # Analysis
     "numpy>=1.24",
     "pandas>=2.0",
     "scipy>=1.10",
@@ -300,17 +292,24 @@ dev = [
     "black>=23.0",
     "mypy>=1.0",
 ]
+phase1 = ["quantstats>=0.0.62", "empyrical>=0.5.5", "yfinance>=0.2.0", "ta>=0.10"]
+phase2 = ["sqlalchemy>=2.0", "alembic>=1.0", "pibou-filings>=0.1.0", "congressional-trading>=0.1.0", "APScheduler>=3.10"]
+# ... additional phase extras for phase4, phase5, phase6, phase8
+all = ["evolve-trader[phase1,phase2,phase4,phase5,phase6,phase8]"]
 
 [build-system]
 requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 
 [tool.black]
@@ -321,7 +320,7 @@ line-length = 100
 
 ```toml
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
@@ -342,6 +341,8 @@ build/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 ```
 
 **Step 4: Create the project skeleton**
@@ -365,9 +366,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - run: pip install -e ".[dev]"
       - run: ruff check src/ tests/
       - run: black --check src/ tests/

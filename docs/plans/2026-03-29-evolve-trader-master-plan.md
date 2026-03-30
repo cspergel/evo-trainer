@@ -8,7 +8,7 @@
 
 **Tech Stack:**
 - **Trading Environment:** AI-Trader (Python, REST API + WebSocket) — HKUDS, MIT licensed
-- **Skill Evolution Engine:** OpenSpace (Python, MCP server) — HKUDS, MIT licensed
+- **Skill Evolution Engine:** OpenSpace (Python, LiteLLM + optional MCP server at `openspace/mcp_server.py`) — HKUDS, MIT licensed
 - **LLM Backbone:** Claude Sonnet / GPT-4o / Qwen (configurable via LiteLLM + OpenRouter)
 - **Data Storage:** SQLite (Phase 0-1) → PostgreSQL + TimescaleDB (Phase 2+)
 - **Signal Ingestion:** FastAPI microservices per source, typed SignalEvent objects
